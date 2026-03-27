@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -73,7 +74,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Use email or continue with Elixpo. Guest skips email.',
+                      'Use email or continue with Google / GitHub. Guest skips email.',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 14),
@@ -140,7 +141,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                     const Divider(height: 28),
                     NeoButton(
                       label: 'Continue with Google',
-                      onPressed: _loading ? () {} : _signInWithElixpo,
+                      onPressed: _loading ? () {} : _signInWithGoogle,
                       color: Colors.white,
                       icon: Container(
                         width: 24,
@@ -162,7 +163,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                     const SizedBox(height: 10),
                     NeoButton(
                       label: 'Continue with GitHub',
-                      onPressed: _loading ? () {} : _signInWithElixpo,
+                      onPressed: _loading ? () {} : _signInWithGithub,
                       color: Colors.black,
                       foregroundColor: Colors.white,
                       icon: SvgPicture.asset(
@@ -197,12 +198,29 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     );
   }
 
-  Future<void> _signInWithElixpo() async {
+  Future<void> _signInWithGoogle() async {
     setState(() => _loading = true);
     try {
-      await widget.authService.signInWithElixpo();
+      await widget.authService.signInWithGoogle();
+    } on TimeoutException {
+      if (!mounted) return;
+      _snack('Session time out');
     } catch (e) {
-      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+      _snack(e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _signInWithGithub() async {
+    setState(() => _loading = true);
+    try {
+      await widget.authService.signInWithGithub();
+    } on TimeoutException {
+      if (!mounted) return;
+      _snack('Session time out');
+    } catch (e) {
       if (!mounted) return;
       _snack(e.toString());
     } finally {
@@ -220,15 +238,14 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     setState(() => _loading = true);
     try {
       if (_createAccount) {
-        await widget.authService.signUpWithEmail(email: email, password: password);
+        await widget.authService.signUpWithEmail(email: email, password: password).timeout(const Duration(seconds: 10));
         if (!mounted) return;
         _snack('Sign up successful! Please check your email for the OTP.');
         setState(() => _needsOtp = true);
       } else {
-        await widget.authService.signInWithEmail(email: email, password: password);
+        await widget.authService.signInWithEmail(email: email, password: password).timeout(const Duration(seconds: 10));
       }
     } catch (e) {
-      await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
       _snack(e.toString());
     } finally {
@@ -245,9 +262,8 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
     }
     setState(() => _loading = true);
     try {
-      await widget.authService.verifyEmailOtp(email: email, otp: otp);
+      await widget.authService.verifyEmailOtp(email: email, otp: otp).timeout(const Duration(seconds: 10));
     } catch (e) {
-      await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
       _snack(e.toString());
     } finally {

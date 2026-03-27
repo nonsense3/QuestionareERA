@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
@@ -67,7 +68,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isEmailAuth = widget.authService?.currentUser?.provider == 'email';
+    final isEmailAuth = !(widget.authService?.currentUser?.isGoogleLinked == true ||
+        widget.authService?.currentUser?.isGithubLinked == true);
 
     return ListView(
       children: [
@@ -169,11 +171,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           : 'Google: not linked',
                     ),
                   ),
-                  Icon(
-                    widget.authService?.isGoogleLinked == true
-                        ? Icons.check_circle
-                        : Icons.error_outline,
-                  ),
+                  if (widget.authService?.isGoogleLinked == true)
+                    const Icon(Icons.check_circle, color: Colors.green)
+                  else
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.black,
+                        shape: const RoundedRectangleBorder(),
+                        side: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.white 
+                              : Colors.black, 
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        minimumSize: const Size(0, 36),
+                      ),
+                      onPressed: () => _linkProvider('google'),
+                      child: const Text('LINK', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                    ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -186,11 +204,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           : 'GitHub: not linked',
                     ),
                   ),
-                  Icon(
-                    widget.authService?.isGithubLinked == true
-                        ? Icons.check_circle
-                        : Icons.error_outline,
-                  ),
+                  if (widget.authService?.isGithubLinked == true)
+                    const Icon(Icons.check_circle, color: Colors.green)
+                  else
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.black,
+                        shape: const RoundedRectangleBorder(),
+                        side: BorderSide(
+                          color: Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.white 
+                              : Colors.black, 
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        minimumSize: const Size(0, 36),
+                      ),
+                      onPressed: () => _linkProvider('github'),
+                      child: const Text('LINK', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                    ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -243,7 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 10),
               NeoButton(
                 label: 'Delete Account',
-                onPressed: () {},
+                onPressed: () => _deleteAccountWithConfirmation(),
                 color: Colors.redAccent,
                 foregroundColor: Colors.white,
               ),
@@ -252,6 +286,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _deleteAccountWithConfirmation() async {
+    final confirmCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Delete Account',
+              style: TextStyle(fontWeight: FontWeight.w900, color: Colors.red)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '⚠️ This is PERMANENT and cannot be undone.\n\n'
+                'All your data, quiz history, and profile will be deleted forever.\n\n'
+                'Type DELETE to confirm:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Type DELETE here',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                if (confirmCtrl.text.trim() == 'DELETE') {
+                  Navigator.pop(ctx, true);
+                } else {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Type DELETE exactly (all caps)')),
+                  );
+                }
+              },
+              child: const Text('DELETE MY ACCOUNT'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await widget.authService?.deleteAccount();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete account: $e')),
+      );
+    }
+  }
+
+  Future<void> _linkProvider(String provider) async {
+    try {
+      if (provider == 'google') {
+        await widget.authService?.linkGoogleIdentity();
+      } else if (provider == 'github') {
+        await widget.authService?.linkGithubIdentity();
+      }
+      if (!mounted) return;
+      await widget.authService?.linkSocialProvider(provider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Successfully linked $provider account!')),
+      );
+    } on TimeoutException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session time out')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to link $provider: $e')),
+      );
+    }
   }
 
   Widget _buildTeamManagementCard() {

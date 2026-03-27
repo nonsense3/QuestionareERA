@@ -128,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _changeTab,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
           const NavigationDestination(icon: Icon(Icons.quiz), label: 'Quiz'),
           NavigationDestination(
@@ -139,15 +140,15 @@ class _HomeScreenState extends State<HomeScreen> {
               Icons.library_books,
               createdCount,
             ),
-            label: 'My quizzes',
+            label: 'Quizzes',
           ),
           const NavigationDestination(
             icon: Icon(Icons.chat),
-            label: 'Live Chat',
+            label: 'Chat',
           ),
           const NavigationDestination(
             icon: Icon(Icons.groups),
-            label: 'Community',
+            label: 'Social',
           ),
           const NavigationDestination(
             icon: Icon(Icons.workspace_premium),

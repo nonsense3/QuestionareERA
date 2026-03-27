@@ -36,6 +36,7 @@ class ProfileAvatarHeader extends StatefulWidget {
 
 class _ProfileAvatarHeaderState extends State<ProfileAvatarHeader> {
   Uint8List? _localAvatarBytes;
+  bool _providerAvatarRefreshRequested = false;
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +53,15 @@ class _ProfileAvatarHeaderState extends State<ProfileAvatarHeader> {
     return AnimatedBuilder(
       animation: auth,
       builder: (context, _) {
-        final googleUrl = auth.googleProfilePictureUrl;
-        final githubUrl = auth.githubProfilePictureUrl;
-        final avatarUrl = googleUrl ?? githubUrl;
+        final avatarUrl = auth.activeAvatarUrl;
+
+        // If provider is linked but avatarUrl is missing, fetch fresh user info once.
+        if (!_providerAvatarRefreshRequested &&
+            (auth.isGoogleLinked || auth.isGithubLinked) &&
+            (avatarUrl == null || avatarUrl.isEmpty)) {
+          _providerAvatarRefreshRequested = true;
+          Future<void>.microtask(auth.refreshSupabaseUser);
+        }
 
         final Widget avatar;
         if (avatarUrl != null && avatarUrl.isNotEmpty) {
@@ -81,7 +88,11 @@ class _ProfileAvatarHeaderState extends State<ProfileAvatarHeader> {
         }
 
         final caption = avatarUrl != null && avatarUrl.isNotEmpty
-            ? 'Photo from social provider.'
+            ? (auth.sessionProvider == 'github'
+                ? 'Photo from GitHub (current sign-in).'
+                : auth.sessionProvider == 'google'
+                    ? 'Photo from Google (current sign-in).'
+                    : 'Photo from social provider.')
             : 'Add a profile photo (max 1 MB) or link a social account.';
 
         return _buildCard(
